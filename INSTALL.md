@@ -23,6 +23,17 @@ git clone --branch v0.1.0-alpha.1 https://github.com/RZomerman/ma-devialet-exper
 cd ma-devialet-expert
 ```
 
+The release includes `SHA256SUMS.txt`. Verify a downloaded asset before
+extracting/installing it, comparing its digest with the corresponding line:
+
+```powershell
+Get-FileHash .\ma-devialet-expert-0.1.0-alpha.1-source.zip -Algorithm SHA256
+```
+
+On Linux, download both assets and the checksum file into the same directory,
+then run `sha256sum -c SHA256SUMS.txt`. Checksums detect corruption; they are
+not a signed supply-chain attestation.
+
 ## A. Home Assistant OS / Supervised local app
 
 This is a **local app build**, not a repository URL you can paste into the

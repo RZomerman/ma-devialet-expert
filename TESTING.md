@@ -17,6 +17,30 @@ These tests use generated PCM and loopback UDP. They do not send audio or
 hardware-control commands to an amplifier. Some tests bind loopback ports;
 run test suites sequentially, not as concurrent processes.
 
+Release preparation in a clean Windows Python 3.12 environment ran **97 tests:
+91 passed, six optional skips**, with Ruff and strict core mypy passing.
+The expanded Python 3.14 environment ran 97 tests with three optional skips.
+Skip counts depend on installed MA models, the optional sibling checkout and
+external C# reference fixtures; they are reported, not treated as executed.
+The packaged source also built successfully in the pinned Linux amd64 MA
+2.10.6 / Python 3.14.7 image. Its isolated runtime suite ran **97 tests:
+94 passed, three optional skips**, including the real provider import and
+15-second simulated-loss playback at each sample rate:
+
+| Rate | Source frames | Unique blocks | Resends |
+| --- | ---: | ---: | ---: |
+| 48000 Hz | 720109 | 3601 | 14 |
+| 44100 Hz | 661609 | 3309 | 12 |
+
+This validation used a separate manual-start build-check app, not the active
+MA server, and sent no physical playback or hardware-control commands.
+
+An example GitHub Actions matrix and pinned-image test job is included at
+[ci/github-actions.yml](ci/github-actions.yml). It is **not active**: the
+publishing login did not have GitHub's workflow scope. A repository owner can
+review it and copy it to `.github/workflows/offline.yml` through GitHub's web
+editor or an appropriately authorized Git client.
+
 Optional checks:
 
 - Exact MA model/source contract checks need the supported MA dependencies and
