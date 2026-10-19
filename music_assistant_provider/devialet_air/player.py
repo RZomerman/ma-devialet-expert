@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 STATUS_MAX_AGE = 2.0
 MAX_SOURCE_CHUNK = 1024 * 1024
 PCM_SLICE_BYTES = 19200
-SESSION_QUIET_SECONDS = 3.0
+SESSION_QUIET_SECONDS = 10.0
 
 
 async def pcm_slices(source: AsyncGenerator[bytes, None]) -> AsyncGenerator[bytes, None]:
@@ -184,8 +184,10 @@ class DevialetAirPlayer(Player):
             if self._session_closed_at is not None:
                 # The Expert can keep acknowledging the old session after its
                 # sender closes. Do not overlap fresh startup with that tail.
-                remaining = SESSION_QUIET_SECONDS - (time.monotonic() - self._session_closed_at)
-                if remaining > 0:
+                while (  # noqa: ASYNC110 - Recheck quiet deadline if a timer wakes early.
+                    remaining := SESSION_QUIET_SECONDS
+                    - (time.monotonic() - self._session_closed_at)
+                ) > 0:
                     await asyncio.sleep(remaining)
             self._extra_attributes["air_startup_phase"] = "readiness"
             # A user-requested play may wake network standby. No background

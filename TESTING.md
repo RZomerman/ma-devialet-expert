@@ -84,23 +84,44 @@ unattended recovery and multiple amplifier support are not established.
 
 During manual Next, a tested Expert continued replying with the old session
 ID and fresh-session startup timed out. The provider now closes/awaits the old
-PCM source and all AIR workers, then enforces a **three-second quiet interval**
+PCM source and all AIR workers, then enforces a **ten-second quiet interval**
 before creating a replacement transport. Press Play once; no second manual
 retry should be necessary. Stop cancels a pending handoff. An initial start,
 or a play requested after the interval has already elapsed, adds no such wait.
 The normal AIR handshake/startup delay remains unchanged.
 
-Three seconds is a provisional compatibility interval, not an established
+Initial three- and five-second intervals still produced startup timeouts
+during live manual-switch testing. They were increased to ten seconds for
+further testing. A controlled manual Next with ten seconds selected the second
+queue item, reached playing and advanced source frames from 81,600 to 180,000
+without a second Play command. A subsequent controlled Next / select index 0 /
+Next sequence passed all three active-stream replacements, each with the
+expected queue index, playing state and advancing new-stream counters:
+36,000 to 132,200; 81,600 to 175,400; and 85,200 to 180,800 frames.
+Reported hardware volume stayed at -41 dB throughout that sequence; the test
+issued no volume commands and stopped playback afterward.
+Ten seconds is a provisional compatibility interval, not an established
 universal receiver timeout. It does not flush receiver-buffered audio or
 provide gapless manual skips. Automatic transitions inside MA's continuous
 flow stream do not restart AIR and are unaffected.
 
 Offline regressions check source cleanup, waiting before replacement, Stop
 during the wait, no extra delay after an expired interval, and real loopback
-UDP port reuse after the previous sender closes. Hardware acceptance of
-immediate Next after this change still requires a physical listening test.
+UDP port reuse after the previous sender closes. The released-module suite
+ran 101 tests with six optional skips; Ruff and core mypy passed. One first-run
+failure in the existing discovery deadline test (0.219 seconds versus its
+0.23-second threshold) did not recur on the complete rerun.
+Audible quality and broader firmware compatibility still require listening tests.
 The `air_startup_phase` diagnostic distinguishes handoff, readiness, transport
 and playing; it describes the most recent startup phase, not a live health signal.
+
+No stop/reset/flush packet has been verified. Official-driver captures show a
+session ID retained across stream restarts with changing stream generations;
+that is a research lead, not an implemented replacement handshake. The current
+provider still uses fresh sessions and preserves strict feedback identity checks.
+For live tests, wait through handoff and startup: MA's Next command can return
+before playback starts. Check the changed queue item and advancing new-stream
+counters, not just command success or retained statistics from the old stream.
 
 ### Physical checks
 

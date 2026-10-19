@@ -453,7 +453,7 @@ class LifecycleTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(all(task.done() for task in self.mass.tasks))
 
     async def test_expired_handoff_does_not_add_startup_delay(self):
-        self.player._session_closed_at = time.monotonic() - 10
+        self.player._session_closed_at = time.monotonic() - PLAYER.SESSION_QUIET_SECONDS - 1
 
         async def play(source, **kwargs):
             kwargs["on_started"]()

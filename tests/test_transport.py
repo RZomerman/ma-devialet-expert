@@ -130,7 +130,7 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_missing_startup_ack_never_sends_audio(self) -> None:
         async with ExpertSimulator("startup_timeout") as sim:
-            with self.assertRaisesRegex(AirError, "timed out"):
+            with self.assertRaisesRegex(AirError, "startup was not acknowledged"):
                 await client_for(sim).play(pcm_source(bytes(800)), status=ready())
             self.assertFalse(sim.audio_started.is_set())
 

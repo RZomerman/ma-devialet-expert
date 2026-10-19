@@ -304,8 +304,11 @@ class AirClient:
                 )
             )
             await asyncio.sleep(period)
-        async with asyncio.timeout(self._timeout):
-            await self._ready.wait()
+        try:
+            async with asyncio.timeout(self._timeout):
+                await self._ready.wait()
+        except TimeoutError as error:
+            raise AirError("AIR startup was not acknowledged for the new session") from error
         await asyncio.sleep(self._startup_delay)
         self._started_at = self._last_feedback = self._last_progress = time.perf_counter()
         self._audio_started = True
