@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 STATUS_MAX_AGE = 2.0
 MAX_SOURCE_CHUNK = 1024 * 1024
 PCM_SLICE_BYTES = 19200
+SESSION_QUIET_SECONDS = 3.0
 
 
 async def pcm_slices(source: AsyncGenerator[bytes, None]) -> AsyncGenerator[bytes, None]:
@@ -58,6 +59,7 @@ class DevialetAirPlayer(Player):
         self._command_lock = asyncio.Lock()
         self._abort_reason: str | None = None
         self._started = False
+        self._session_closed_at: float | None = None
 
     async def volume_set(self, volume_level: int) -> None:
         """Change hardware volume only on an explicit MA volume command."""
@@ -175,8 +177,17 @@ class DevialetAirPlayer(Player):
         self.update_state()
 
     async def _run(self, media: PlayerMedia, started: asyncio.Future[None]) -> None:
+        client: AirClient | None = None
         try:
             settings = self.air_provider.settings
+            self._extra_attributes["air_startup_phase"] = "handoff"
+            if self._session_closed_at is not None:
+                # The Expert can keep acknowledging the old session after its
+                # sender closes. Do not overlap fresh startup with that tail.
+                remaining = SESSION_QUIET_SECONDS - (time.monotonic() - self._session_closed_at)
+                if remaining > 0:
+                    await asyncio.sleep(remaining)
+            self._extra_attributes["air_startup_phase"] = "readiness"
             # A user-requested play may wake network standby. No background
             # monitoring, provider load or stop operation wakes the amplifier.
             await self.air_provider.discovery.set_power(settings.host, True)
@@ -203,12 +214,14 @@ class DevialetAirPlayer(Player):
 
             def on_started() -> None:
                 self._started = True
+                self._extra_attributes["air_startup_phase"] = "playing"
                 self._attr_playback_state = PlaybackState.PLAYING
                 self.update_state()
                 if not started.done():
                     started.set_result(None)
 
             async with aclosing(source), aclosing(pcm_slices(source)) as pcm:
+                self._extra_attributes["air_startup_phase"] = "transport"
                 stats = await client.play(
                     pcm,
                     status=status,
@@ -231,6 +244,8 @@ class DevialetAirPlayer(Player):
         except Exception as err:
             self._report_error(f"AIR playback failed: {err}", started)
         finally:
+            if client is not None:
+                self._session_closed_at = time.monotonic()
             self._started = False
             self._attr_playback_state = PlaybackState.IDLE
             self._attr_current_media = None

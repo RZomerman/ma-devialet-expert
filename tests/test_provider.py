@@ -365,6 +365,104 @@ class LifecycleTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(self.player._play_task)
         self.assertNotIn("air_error", self.player._extra_attributes)
 
+    async def test_next_closes_old_source_and_waits_before_replacement(self):
+        events = []
+        sends = 0
+        closed_at = []
+
+        async def play(source, **kwargs):
+            nonlocal sends
+            sends += 1
+            if sends == 2:
+                self.assertEqual(events, ["start", "closed"])
+                self.assertEqual(self.mass.closed_sources, 1)
+                self.assertGreaterEqual(time.monotonic() - closed_at[0], 0.05)
+            events.append("start")
+            kwargs["on_started"]()
+            try:
+                async for _ in source:
+                    await asyncio.Event().wait()
+            finally:
+                events.append("closed")
+                closed_at.append(time.monotonic())
+
+        with self.client(play), patch.object(PLAYER, "SESSION_QUIET_SECONDS", 0.06):
+            await self.player.play_media(self.media)
+            await asyncio.wait_for(self.player.play_media(self.media), 1)
+            self.assertEqual(self.player._attr_playback_state, "playing")
+            self.assertNotIn("air_error", self.player._extra_attributes)
+            await self.player.stop()
+        self.assertEqual(events, ["start", "closed", "start", "closed"])
+        self.assertEqual(self.mass.closed_sources, 2)
+
+    async def test_stop_during_handoff_cancels_without_starting_new_sender(self):
+        self.player._session_closed_at = time.monotonic()
+        with patch.object(PLAYER, "AirClient") as client:
+            command = asyncio.create_task(self.player.play_media(self.media))
+            await asyncio.sleep(0)
+            await asyncio.sleep(0)
+            await asyncio.wait_for(self.player.stop(), 0.5)
+            with self.assertRaises(asyncio.CancelledError):
+                await command
+        client.assert_not_called()
+        self.mass.streams.get_stream.assert_not_called()
+        self.discovery.set_power.assert_not_awaited()
+
+    async def test_switch_reuses_udp_port_only_after_old_transport_closes(self):
+        self.provider.settings = settings(host="127.0.0.1", network_input_index=9)
+        self.discovery.wait_for_ready.side_effect = lambda *a, **kw: ready()
+        self.discovery.require_ready.side_effect = lambda *a, **kw: ready()
+        closures = []
+
+        async def source(*args, **kwargs):
+            try:
+                while True:
+                    yield b"\0" * 800
+            finally:
+                closures.append(time.monotonic())
+
+        self.mass.streams.get_stream.side_effect = source
+        async with ExpertSimulator() as first, ExpertSimulator() as second:
+            old_client = client_for(first)
+            new_client = client_for(second)
+            with patch.object(PLAYER, "AirClient", return_value=old_client):
+                await self.player.play_media(self.media)
+                await asyncio.wait_for(first.audio_started.wait(), 1)
+                port = old_client._socket.getsockname()[1]
+            new_client._feedback_port = port
+
+            def replacement(*args, **kwargs):
+                self.assertIsNone(old_client._socket)
+                self.assertFalse(old_client._playing)
+                self.assertEqual(len(closures), 1)
+                self.assertGreaterEqual(time.monotonic() - closures[0], 0.05)
+                return new_client
+
+            with (
+                patch.object(PLAYER, "AirClient", side_effect=replacement),
+                patch.object(PLAYER, "SESSION_QUIET_SECONDS", 0.06),
+            ):
+                await asyncio.wait_for(self.player.play_media(self.media), 2)
+                await asyncio.wait_for(second.audio_started.wait(), 1)
+                self.assertEqual(new_client._socket.getsockname()[1], port)
+                self.assertEqual(self.player._attr_playback_state, "playing")
+                self.assertNotIn("air_error", self.player._extra_attributes)
+                await self.player.stop()
+            self.assertIsNone(new_client._socket)
+        self.assertEqual(len(closures), 2)
+        self.assertTrue(all(task.done() for task in self.mass.tasks))
+
+    async def test_expired_handoff_does_not_add_startup_delay(self):
+        self.player._session_closed_at = time.monotonic() - 10
+
+        async def play(source, **kwargs):
+            kwargs["on_started"]()
+            await asyncio.Event().wait()
+
+        with self.client(play):
+            await asyncio.wait_for(self.player.play_media(self.media), 0.5)
+            await self.player.stop()
+
     async def test_stop_while_readiness_waits(self):
         async def wait(*args, **kwargs):
             await asyncio.Event().wait()

@@ -80,6 +80,30 @@ unattended recovery and multiple amplifier support are not established.
 
 ## Suggested physical test
 
+### Manual track handoff (development update)
+
+During manual Next, a tested Expert continued replying with the old session
+ID and fresh-session startup timed out. The provider now closes/awaits the old
+PCM source and all AIR workers, then enforces a **three-second quiet interval**
+before creating a replacement transport. Press Play once; no second manual
+retry should be necessary. Stop cancels a pending handoff. An initial start,
+or a play requested after the interval has already elapsed, adds no such wait.
+The normal AIR handshake/startup delay remains unchanged.
+
+Three seconds is a provisional compatibility interval, not an established
+universal receiver timeout. It does not flush receiver-buffered audio or
+provide gapless manual skips. Automatic transitions inside MA's continuous
+flow stream do not restart AIR and are unaffected.
+
+Offline regressions check source cleanup, waiting before replacement, Stop
+during the wait, no extra delay after an expired interval, and real loopback
+UDP port reuse after the previous sender closes. Hardware acceptance of
+immediate Next after this change still requires a physical listening test.
+The `air_startup_phase` diagnostic distinguishes handoff, readiness, transport
+and playing; it describes the most recent startup phase, not a live health signal.
+
+### Physical checks
+
 Only test with the operator present and permission to change device state:
 
 1. Set the amp to -40 dB or lower; keep software gain conservative.
