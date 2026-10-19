@@ -1,0 +1,10 @@
+{
+  "type": "player",
+  "domain": "devialet_air",
+  "name": "Devialet Expert AIR (experimental)",
+  "stage": "alpha",
+  "description": "Experimental stereo PCM16 playback to one manually configured Expert. Select its network input and set safe hardware volume yourself.",
+  "codeowners": ["@RZomerman"],
+  "requirements": [],
+  "multi_instance": false
+}

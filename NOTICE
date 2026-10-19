@@ -1,0 +1,19 @@
+Devialet Expert AIR for Music Assistant
+Copyright (C) 2026 Roelf Zomerman and contributors
+
+Distributed under the GNU General Public License version 3; see LICENSE.
+
+Hardware control wire-format logic was adapted from:
+https://github.com/rzomerman/ha-devialet-expert
+Installed reference version: 0.1.4, GPL-3.0.
+Changes include a portable control encoder, shared AIR discovery socket,
+MA percentage/ceiling mapping, confirmed commands and wake-on-play integration.
+
+AIR transport research:
+https://github.com/RZomermanMS/devialet-AIR-protocol
+
+Music Assistant is separately maintained and distributed under its own license.
+The pinned image is downloaded during the user's build, not bundled here.
+No Devialet drivers, vendor binaries, private audio or packet captures are included.
+Devialet and Music Assistant names identify interoperability targets only;
+this project is not affiliated with or endorsed by those projects/vendors.

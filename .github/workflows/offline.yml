@@ -1,0 +1,40 @@
+name: Portable AIR offline tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  offline:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.12", "3.14"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m unittest discover -s tests -t . -v
+      - run: python -m ruff check src tests music_assistant_provider tools
+      - run: python -m mypy
+      - run: python -m compileall -q src music_assistant_provider
+
+  pinned-ma-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build actual MA 2.10.6 image
+        run: docker build -f Dockerfile.music-assistant -t ma-devialet-test .
+      - name: Run offline checks inside actual MA runtime
+        run: >-
+          docker run --rm --network none
+          -e DEVIALET_MA_IMPORT=1
+          --entrypoint /app/venv/bin/python
+          -v "$PWD:/tests:ro" -w /tests ma-devialet-test
+          -m unittest discover -s tests -t . -v

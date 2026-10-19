@@ -1,0 +1,14 @@
+**
+!Dockerfile.music-assistant
+!pyproject.toml
+!README.md
+!LICENSE
+!NOTICE
+!src/
+!src/devialet_air/
+!src/devialet_air/*.py
+!src/devialet_air/py.typed
+!music_assistant_provider/
+!music_assistant_provider/devialet_air/
+!music_assistant_provider/devialet_air/*.py
+!music_assistant_provider/devialet_air/manifest.json
